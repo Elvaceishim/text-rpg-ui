@@ -21,7 +21,103 @@ function Game() {
   const [log, setLog] = useState([]);
   const [gameOver, setGameOver] = useState(false);
   const [message, setMessage] = useState("");
-  const [isAttacking, setIsAttacking] = useState(false); // For attack animation
+  const [isAttacking, setIsAttacking] = useState(false);
+  const [audioContext, setAudioContext] = useState(null);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+
+  // Initialize audio context on first user interaction
+  const initializeAudio = async () => {
+    if (!audioContext && !audioEnabled) {
+      try {
+        const context = new (window.AudioContext || window.webkitAudioContext)();
+        if (context.state === 'suspended') {
+          await context.resume();
+        }
+        setAudioContext(context);
+        setAudioEnabled(true);
+        console.log('Audio initialized successfully');
+      } catch (error) {
+        console.log('Audio initialization failed:', error);
+        setAudioEnabled(false);
+      }
+    }
+  };
+
+  // Enhanced sound effects that work on mobile
+  const playSound = async (type) => {
+    // Initialize audio on first interaction if not already done
+    if (!audioEnabled) {
+      await initializeAudio();
+    }
+
+    // Add haptic feedback for mobile devices
+    if (navigator.vibrate) {
+      switch(type) {
+        case 'attack':
+          navigator.vibrate(50);
+          break;
+        case 'heal':
+          navigator.vibrate([30, 30, 30]);
+          break;
+        case 'victory':
+          navigator.vibrate([100, 50, 100, 50, 100]);
+          break;
+        case 'defeat':
+          navigator.vibrate(200);
+          break;
+      }
+    }
+
+    if (!audioContext || !audioEnabled) {
+      console.log('Audio not available, using haptic feedback only');
+      return;
+    }
+
+    try {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Different sounds for different actions (reduced volume for mobile)
+      switch(type) {
+        case 'attack':
+          oscillator.frequency.value = 200;
+          oscillator.type = 'square';
+          gainNode.gain.setValueAtTime(0.03, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+          break;
+        case 'heal':
+          oscillator.frequency.value = 400;
+          oscillator.type = 'sine';
+          gainNode.gain.setValueAtTime(0.03, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+          break;
+        case 'victory':
+          oscillator.frequency.value = 523; // C note
+          oscillator.type = 'square';
+          gainNode.gain.setValueAtTime(0.03, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+          break;
+        case 'defeat':
+          oscillator.frequency.value = 150;
+          oscillator.type = 'sawtooth';
+          gainNode.gain.setValueAtTime(0.03, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.8);
+          break;
+        default:
+          oscillator.frequency.value = 300;
+          gainNode.gain.setValueAtTime(0.03, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.2);
+      }
+      
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (error) {
+      console.log('Error playing sound:', error);
+    }
+  };
 
   // Debug logs to see initial states
   console.log('Initial hero:', hero);
@@ -30,47 +126,6 @@ function Game() {
 
   const addToLog = (entry) => {
     setLog((prev) => [entry, ...prev]);
-  };
-
-  // Add sound effects
-  const playSound = (type) => {
-    // Create audio context for simple sound effects
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    // Different sounds for different actions
-    switch(type) {
-      case 'attack':
-        oscillator.frequency.value = 200;
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-        break;
-      case 'heal':
-        oscillator.frequency.value = 400;
-        oscillator.type = 'sine';
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-        break;
-      case 'victory':
-        oscillator.frequency.value = 523; // C note
-        oscillator.type = 'square';
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        break;
-      case 'defeat':
-        oscillator.frequency.value = 150;
-        oscillator.type = 'sawtooth';
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8);
-        break;
-    }
-    
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.5);
   };
 
   const handleAttack = () => {
@@ -245,7 +300,19 @@ function Game() {
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6 min-h-screen">
-      <h1 className="text-2xl sm:text-3xl font-bold text-center">Text RPG Battle ⚔️</h1>
+      <div className="text-center space-y-2">
+        <h1 className="text-2xl sm:text-3xl font-bold">⚔️ Text RPG Battle</h1>
+        <button
+          onClick={initializeAudio}
+          className={`text-sm px-3 py-1 rounded transition-colors ${
+            audioEnabled 
+              ? 'bg-green-600 hover:bg-green-700 text-white' 
+              : 'bg-gray-600 hover:bg-gray-700 text-white'
+          }`}
+        >
+          {audioEnabled ? '🔊 Sound On' : '🔇 Tap to Enable Sound'}
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
         <div className={`transition-transform duration-300 ${isAttacking ? 'scale-105 animate-pulse' : ''}`}>
