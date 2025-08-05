@@ -1,4 +1,4 @@
 [build]
   base = "text-rpg-ui"
   command = "yarn build"
-  publish = "text-rpg-ui/dist"
+  publish = "dist"
