@@ -27,24 +27,59 @@ function Game() {
 
   // Initialize audio context on first user interaction
   const initializeAudio = async () => {
-    if (!audioContext && !audioEnabled) {
+    if (!audioEnabled) {
       try {
-        const context = new (window.AudioContext || window.webkitAudioContext)();
+        let context = audioContext;
+        if (!context) {
+          context = new (window.AudioContext || window.webkitAudioContext)();
+          setAudioContext(context);
+        }
+        
         if (context.state === 'suspended') {
           await context.resume();
+          console.log('Audio context resumed');
         }
-        setAudioContext(context);
+        
         setAudioEnabled(true);
-        console.log('Audio initialized successfully');
+        console.log('Audio initialized successfully, state:', context.state);
+        
+        // Test sound to confirm audio is working
+        playTestSound(context);
       } catch (error) {
-        console.log('Audio initialization failed:', error);
+        console.error('Audio initialization failed:', error);
         setAudioEnabled(false);
       }
+    } else {
+      console.log('Audio already enabled');
+    }
+  };
+
+  // Test sound function
+  const playTestSound = (context) => {
+    try {
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+      
+      oscillator.frequency.value = 440; // A note
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.1, context.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.2);
+      
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.2);
+      console.log('Test sound played');
+    } catch (error) {
+      console.error('Test sound failed:', error);
     }
   };
 
   // Enhanced sound effects that work on mobile
   const playSound = async (type) => {
+    console.log('playSound called with type:', type, 'audioEnabled:', audioEnabled);
+    
     // Initialize audio on first interaction if not already done
     if (!audioEnabled) {
       await initializeAudio();
@@ -69,11 +104,12 @@ function Game() {
     }
 
     if (!audioContext || !audioEnabled) {
-      console.log('Audio not available, using haptic feedback only');
+      console.log('Audio not available, audioContext:', !!audioContext, 'audioEnabled:', audioEnabled);
       return;
     }
 
     try {
+      console.log('Creating audio for type:', type);
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
@@ -114,8 +150,9 @@ function Game() {
       
       oscillator.start();
       oscillator.stop(audioContext.currentTime + 0.5);
+      console.log('Sound played successfully for type:', type);
     } catch (error) {
-      console.log('Error playing sound:', error);
+      console.error('Error playing sound:', error);
     }
   };
 

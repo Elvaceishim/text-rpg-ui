@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>Audio Test Page</h1>
+    <p>This page tests Web Audio API functionality on mobile devices.</p>
+    
+    <div id="status" class="status info">Ready to test audio</div>
+    
+    <div>
+        <button onclick="testBasicAudio()">Test Basic Audio</button>
+        <button onclick="testUserGestureAudio()">Test After User Gesture</button>
+        <button onclick="testSynthesizedSound()">Test Synthesized Sound</button>
+        <button onclick="checkAudioContext()">Check Audio Context State</button>
+    </div>
+
+    <script>
+        let audioContext = null;
+        
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            console.log(message);
+        }
+        
+        function checkAudioContext() {
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                updateStatus(`Audio Context State: ${audioContext.state}, Sample Rate: ${audioContext.sampleRate}`, 'info');
+            } catch (error) {
+                updateStatus(`Audio Context Error: ${error.message}`, 'error');
+            }
+        }
+        
+        function testBasicAudio() {
+            updateStatus('Testing basic audio creation...', 'info');
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                updateStatus(`Audio context created. State: ${audioContext.state}`, 'success');
+            } catch (error) {
+                updateStatus(`Failed to create audio context: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testUserGestureAudio() {
+            updateStatus('Testing audio with user gesture...', 'info');
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                    updateStatus(`Audio context resumed. State: ${audioContext.state}`, 'success');
+                } else {
+                    updateStatus(`Audio context state: ${audioContext.state}`, 'success');
+                }
+            } catch (error) {
+                updateStatus(`Failed to resume audio context: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testSynthesizedSound() {
+            updateStatus('Testing synthesized sound...', 'info');
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 440; // A note
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+                
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.5);
+                
+                updateStatus('Sound played successfully!', 'success');
+            } catch (error) {
+                updateStatus(`Failed to play sound: ${error.message}`, 'error');
+            }
+        }
+        
+        // Check if we're on mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        updateStatus(`Device: ${isMobile ? 'Mobile' : 'Desktop'}, User Agent: ${navigator.userAgent.substring(0, 50)}...`, 'info');
+    </script>
+</body>
+</html>
